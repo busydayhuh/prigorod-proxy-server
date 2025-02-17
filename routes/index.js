@@ -15,19 +15,22 @@ router.use(
   })
 );
 
-router.get("/", async (req, res) => {
+router.get("/:route", async (req, res) => {
   try {
     const params = new URLSearchParams({
       [API_KEY_NAME]: API_KEY_VALUE,
       ...url.parse(req.url, true).query,
     });
+    const reqRoute = req.params.route;
 
-    const apiRes = await needle("GET", `${API_BASE_URL}?${params}`);
+    const apiRes = await needle(
+      "GET",
+      `${API_BASE_URL}${reqRoute}/?${params}&lang=ru_RU&format=json`
+    );
     const data = apiRes.body;
 
-    // Log the request to the public API
     // if (process.env.NODE_ENV !== "production") {
-    //   console.log(`REQUEST: ${API_BASE_URL}?${params}`);
+    //   console.log(`REQUEST: ${API_BASE_URL}${reqRoute}/?${params}`);
     // }
 
     res.status(200).json(data);
