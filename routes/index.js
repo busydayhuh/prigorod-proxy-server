@@ -36,25 +36,38 @@ router.use(
   })
 );
 
-router.get("/:route", async (req, res) => {
+router.get("/stations_list", async (req, res) => {
+  try {
+    const params = new URLSearchParams({
+      [API_KEY_NAME]: API_KEY_VALUE,
+    });
+
+    const apiRes = await needle(
+      "GET",
+      `${API_BASE_URL}/stations_list/?lang=ru_RU&format=json&${params}`
+    );
+
+    const data = apiRes.body;
+    const stations = filter(data);
+
+    res.status(200).json(stations);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/search", async (req, res) => {
   try {
     const params = new URLSearchParams({
       [API_KEY_NAME]: API_KEY_VALUE,
       ...url.parse(req.url, true).query,
     });
-    const reqRoute = req.params.route;
 
     const apiRes = await needle(
       "GET",
-      `${API_BASE_URL}${reqRoute}/?lang=ru_RU&format=json&${params}`
+      `${API_BASE_URL}/search/?lang=ru_RU&format=json&${params}`
     );
     const data = apiRes.body;
-
-    if (reqRoute === "stations_list") {
-      const stations = filter(data);
-      res.status(200).json(stations);
-      return;
-    }
 
     res.status(200).json(data);
   } catch (error) {
