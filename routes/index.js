@@ -22,7 +22,11 @@ const filter = (data) => {
   for (let region of rus.regions) {
     for (let settlement of region.settlements) {
       for (let station of settlement.stations) {
-        if (station.station_type === "train_station") stations.push(station);
+        if (station.station_type === "train_station")
+          stations.push({
+            title: station.title,
+            code: station.codes.yandex_code,
+          });
       }
     }
   }
