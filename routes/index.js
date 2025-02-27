@@ -9,8 +9,8 @@ const API_BASE_URL = process.env.API_BASE_URL;
 const API_KEY_NAME = process.env.API_KEY_NAME;
 const API_KEY_VALUE = process.env.API_KEY_VALUE;
 
-//Filter for "stations" route
-const filter = (data) => {
+//Filter stations for "stations" route
+const filterStations = (data) => {
   const dataObj = JSON.parse(data);
 
   const rus = dataObj["countries"].find(
@@ -34,6 +34,22 @@ const filter = (data) => {
   return stations;
 };
 
+const divideResults = (segments) => {
+  const departed = [];
+  const future = [];
+
+  for (let segment of segments) {
+    const departureTime = new Date(segment.departure);
+    if (departureTime.getTime() > Date.now()) {
+      future.push(segment);
+    } else {
+      departed.push(segment);
+    }
+  }
+
+  return { departed, future };
+};
+
 router.use(
   cors({
     origin: "*",
@@ -52,7 +68,7 @@ router.get("/stations_list", async (req, res) => {
     );
 
     const data = apiRes.body;
-    const stations = filter(data);
+    const stations = filterStations(data);
 
     res.status(200).json(stations);
   } catch (error) {
@@ -69,11 +85,14 @@ router.get("/search", async (req, res) => {
 
     const apiRes = await needle(
       "GET",
-      `${API_BASE_URL}/search/?lang=ru_RU&format=json&${params}`
+      `${API_BASE_URL}/search/?lang=ru_RU&format=json&limit=1000&${params}`
     );
     const data = apiRes.body;
+    const segments = data.segments;
 
-    res.status(200).json(data);
+    const dividedResults = divideResults(segments);
+
+    res.status(200).json(dividedResults);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
