@@ -50,6 +50,36 @@ const divideResults = (segments) => {
   return { departed, future };
 };
 
+const divideSchedule = (segments, date) => {
+  const departed = [];
+  const future = [];
+
+  for (let segment of segments) {
+    const departureTime = date
+      ? new Date(segment.departure || segment.arrival)
+      : segment.departure || segment.arrival;
+    const now = new Date();
+
+    if (!date) {
+      const currentTime = `${now.getHours()}:${now.getMinutes()}`;
+
+      if (departureTime > currentTime) {
+        future.push(segment);
+      } else {
+        departed.push(segment);
+      }
+    } else {
+      if (departureTime.getTime() > now) {
+        future.push(segment);
+      } else {
+        departed.push(segment);
+      }
+    }
+  }
+
+  return { departed, future };
+};
+
 router.use(
   cors({
     origin: "*",
@@ -93,6 +123,26 @@ router.get("/search", async (req, res) => {
     const dividedResults = divideResults(segments);
 
     res.status(200).json(dividedResults);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/schedule", async (req, res) => {
+  try {
+    const params = new URLSearchParams({
+      [API_KEY_NAME]: API_KEY_VALUE,
+      ...url.parse(req.url, true).query,
+    });
+
+    const apiRes = await needle(
+      "GET",
+      `${API_BASE_URL}/schedule/?lang=ru_RU&format=json&transport_types=suburban&${params}&limit=1000`
+    );
+    const data = apiRes.body;
+    const dividedResults = divideSchedule(data.schedule, data.date);
+
+    res.status(200).json({ ...data, schedule: dividedResults });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
