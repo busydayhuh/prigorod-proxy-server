@@ -3,11 +3,16 @@ const url = require("url");
 const router = express.Router();
 const needle = require("needle");
 const cors = require("cors");
+const apicache = require("apicache");
 
 //Env vars
 const API_BASE_URL = process.env.API_BASE_URL;
 const API_KEY_NAME = process.env.API_KEY_NAME;
 const API_KEY_VALUE = process.env.API_KEY_VALUE;
+const PROXY_BASE_URL = process.env.PROXY_BASE_URL;
+
+//Init cache
+const cache = apicache.middleware;
 
 //Filter stations for "stations" route
 const filterStations = (data) => {
@@ -22,16 +27,33 @@ const filterStations = (data) => {
   for (let region of rus.regions) {
     for (let settlement of region.settlements) {
       for (let station of settlement.stations) {
-        if (station.station_type === "train_station")
+        if (station.transport_type === "train")
           stations.push({
             title: station.title,
             code: station.codes.yandex_code,
+            direction: station.direction || "",
           });
       }
     }
   }
 
   return stations;
+};
+
+const searchStations = (stations, q = "", limit = 15) => {
+  const result = [];
+
+  if (!q) {
+    return stations.sort(() => 0.5 - Math.random()).slice(0, limit);
+  }
+
+  for (let station of stations) {
+    if (station.title.toLowerCase().includes(q)) {
+      result.push(station);
+    }
+  }
+
+  return result.slice(0, limit);
 };
 
 const divideResults = (segments) => {
@@ -80,21 +102,19 @@ const divideSchedule = (segments, date) => {
   return { departed, future };
 };
 
+// ROUTES
+
 router.use(
   cors({
     origin: "*",
   })
 );
 
-router.get("/stations_list", async (req, res) => {
+router.get("/stations_list", cache("1 day"), async (req, res) => {
   try {
-    const params = new URLSearchParams({
-      [API_KEY_NAME]: API_KEY_VALUE,
-    });
-
     const apiRes = await needle(
       "GET",
-      `${API_BASE_URL}/stations_list/?lang=ru_RU&format=json&${params}`
+      `${API_BASE_URL}/stations_list/?lang=ru_RU&format=json&${API_KEY_NAME}=${API_KEY_VALUE}`
     );
 
     const data = apiRes.body;
@@ -106,7 +126,23 @@ router.get("/stations_list", async (req, res) => {
   }
 });
 
-router.get("/search", async (req, res) => {
+router.get("/stations_search", cache("1 day"), async (req, res) => {
+  try {
+    const params = new URLSearchParams({
+      ...url.parse(req.url, true).query,
+    });
+    const proxyRes = await needle("GET", `${PROXY_BASE_URL}/stations_list`);
+
+    const data = proxyRes.body;
+    const searchResult = searchStations(data, params.get("q"));
+
+    res.status(200).json(searchResult);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/search", cache("2 minutes"), async (req, res) => {
   try {
     const params = new URLSearchParams({
       [API_KEY_NAME]: API_KEY_VALUE,
@@ -128,7 +164,7 @@ router.get("/search", async (req, res) => {
   }
 });
 
-router.get("/schedule", async (req, res) => {
+router.get("/schedule", cache("2 minutes"), async (req, res) => {
   try {
     const params = new URLSearchParams({
       [API_KEY_NAME]: API_KEY_VALUE,
