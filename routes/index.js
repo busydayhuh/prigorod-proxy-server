@@ -32,6 +32,8 @@ const filterStations = (data) => {
             title: station.title,
             code: station.codes.yandex_code,
             direction: station.direction || "",
+            settlement: settlement.title || "",
+            station_type: station.station_type,
           });
       }
     }
@@ -102,6 +104,30 @@ const divideSchedule = (segments, date) => {
   return { departed, future };
 };
 
+const checkForSuggestions = async (fromCode, toCode) => {
+  const proxyRes = await needle(
+    "GET",
+    `http://localhost:5050/api/stations_list`
+  );
+  const stations = proxyRes.body;
+
+  const from = stations.find(({ code }) => code === fromCode);
+  const to = stations.find(({ code }) => code === toCode);
+
+  let suggestion = [];
+
+  for (let station of stations) {
+    if (
+      station.direction == from.direction &&
+      station.title.includes(to.settlement) &&
+      station.station_type === "train_station"
+    ) {
+      suggestion.push(station);
+    }
+  }
+  return { suggestions: suggestion };
+};
+
 // ROUTES
 
 router.use(
@@ -110,7 +136,7 @@ router.use(
   })
 );
 
-router.get("/stations_list", cache("1 day"), async (req, res) => {
+router.get("/stations_list", cache("3 days"), async (req, res) => {
   try {
     const apiRes = await needle(
       "GET",
@@ -126,7 +152,7 @@ router.get("/stations_list", cache("1 day"), async (req, res) => {
   }
 });
 
-router.get("/stations_search", cache("1 day"), async (req, res) => {
+router.get("/stations_search", cache("5 minutes"), async (req, res) => {
   try {
     const params = new URLSearchParams({
       ...url.parse(req.url, true).query,
@@ -142,7 +168,7 @@ router.get("/stations_search", cache("1 day"), async (req, res) => {
   }
 });
 
-router.get("/search", cache("2 minutes"), async (req, res) => {
+router.get("/search", async (req, res) => {
   try {
     const params = new URLSearchParams({
       [API_KEY_NAME]: API_KEY_VALUE,
@@ -153,14 +179,35 @@ router.get("/search", cache("2 minutes"), async (req, res) => {
       "GET",
       `${API_BASE_URL}/search/?lang=ru_RU&format=json&limit=1000&${params}`
     );
+
+    if (apiRes.statusCode !== 200) {
+      const yandexError = new Error(
+        `API request failed with status code ${apiRes.statusCode}`
+      );
+      yandexError.code = apiRes.statusCode;
+
+      throw yandexError;
+    }
+
     const data = apiRes.body;
     const segments = data.segments;
+
+    if (segments.length === 0) {
+      const resp = await checkForSuggestions(
+        params.get("from"),
+        params.get("to")
+      );
+
+      res.status(200).json(resp);
+      return;
+    }
 
     const dividedResults = divideResults(segments);
 
     res.status(200).json(dividedResults);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const code = error.code || 500;
+    res.status(code).json({ error: error.message });
   }
 });
 
@@ -179,6 +226,25 @@ router.get("/schedule", cache("2 minutes"), async (req, res) => {
     const dividedResults = divideSchedule(data.schedule, data.date);
 
     res.status(200).json({ ...data, schedule: dividedResults });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/thread", cache("1 hour"), async (req, res) => {
+  try {
+    const params = new URLSearchParams({
+      [API_KEY_NAME]: API_KEY_VALUE,
+      ...url.parse(req.url, true).query,
+    });
+
+    const apiRes = await needle(
+      "GET",
+      `${API_BASE_URL}/thread/?lang=ru_RU&format=json&${params}`
+    );
+    const data = apiRes.body;
+
+    res.status(200).json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

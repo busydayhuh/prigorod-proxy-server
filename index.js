@@ -2,7 +2,7 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
-const PORT = 5000;
+const PORT = 5050;
 const app = express();
 
 //Rate limiting
