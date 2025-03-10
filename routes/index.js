@@ -231,6 +231,25 @@ router.get("/schedule", cache("2 minutes"), async (req, res) => {
   }
 });
 
+router.get("/directions", cache("1 day"), async (req, res) => {
+  try {
+    const params = new URLSearchParams({
+      [API_KEY_NAME]: API_KEY_VALUE,
+      ...url.parse(req.url, true).query,
+    });
+
+    const apiRes = await needle(
+      "GET",
+      `${API_BASE_URL}/schedule/?lang=ru_RU&format=json&transport_types=suburban&${params}&limit=1`
+    );
+    const data = apiRes.body;
+
+    res.status(200).json(data.directions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/thread", cache("1 hour"), async (req, res) => {
   try {
     const params = new URLSearchParams({
