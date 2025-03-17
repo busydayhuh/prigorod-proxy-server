@@ -222,12 +222,23 @@ router.get("/schedule", cache("2 minutes"), async (req, res) => {
       "GET",
       `${API_BASE_URL}/schedule/?lang=ru_RU&format=json&transport_types=suburban&${params}&limit=1000`
     );
+
+    if (apiRes.statusCode !== 200) {
+      const yandexError = new Error(
+        `API request failed with status code ${apiRes.statusCode}`
+      );
+      yandexError.code = apiRes.statusCode;
+
+      throw yandexError;
+    }
+
     const data = apiRes.body;
     const dividedResults = divideSchedule(data.schedule, data.date);
 
     res.status(200).json({ ...data, schedule: dividedResults });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const code = error.code || 500;
+    res.status(code).json({ error: error.message });
   }
 });
 
@@ -242,11 +253,22 @@ router.get("/directions", cache("1 day"), async (req, res) => {
       "GET",
       `${API_BASE_URL}/schedule/?lang=ru_RU&format=json&transport_types=suburban&${params}&limit=1`
     );
+
+    if (apiRes.statusCode !== 200) {
+      const yandexError = new Error(
+        `API request failed with status code ${apiRes.statusCode}`
+      );
+      yandexError.code = apiRes.statusCode;
+
+      throw yandexError;
+    }
+
     const data = apiRes.body;
 
     res.status(200).json(data.directions);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const code = error.code || 500;
+    res.status(code).json({ error: error.message });
   }
 });
 
@@ -261,11 +283,22 @@ router.get("/thread", cache("1 hour"), async (req, res) => {
       "GET",
       `${API_BASE_URL}/thread/?lang=ru_RU&format=json&${params}`
     );
+
+    if (apiRes.statusCode !== 200) {
+      const yandexError = new Error(
+        `API request failed with status code ${apiRes.statusCode}`
+      );
+      yandexError.code = apiRes.statusCode;
+
+      throw yandexError;
+    }
+
     const data = apiRes.body;
 
     res.status(200).json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const code = error.code || 500;
+    res.status(code).json({ error: error.message });
   }
 });
 
