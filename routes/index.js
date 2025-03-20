@@ -58,9 +58,14 @@ const searchStations = (stations, q = "", limit = 15) => {
   return result.slice(0, limit);
 };
 
-const divideResults = (segments) => {
-  const departed = [];
-  const future = [];
+const divideResults = (segments, date) => {
+  let departed = [];
+  let future = [];
+
+  if (!date) {
+    future = [...segments];
+    return { departed, future };
+  }
 
   for (let segment of segments) {
     const departureTime = new Date(segment.departure);
@@ -75,8 +80,13 @@ const divideResults = (segments) => {
 };
 
 const divideSchedule = (segments, date) => {
-  const departed = [];
-  const future = [];
+  let departed = [];
+  let future = [];
+
+  if (!date) {
+    future = [...segments];
+    return { departed, future };
+  }
 
   for (let segment of segments) {
     const departureTime = date
@@ -84,20 +94,10 @@ const divideSchedule = (segments, date) => {
       : segment.departure || segment.arrival;
     const now = new Date();
 
-    if (!date) {
-      const currentTime = `${now.getHours()}:${now.getMinutes()}`;
-
-      if (departureTime > currentTime) {
-        future.push(segment);
-      } else {
-        departed.push(segment);
-      }
+    if (departureTime.getTime() > now) {
+      future.push(segment);
     } else {
-      if (departureTime.getTime() > now) {
-        future.push(segment);
-      } else {
-        departed.push(segment);
-      }
+      departed.push(segment);
     }
   }
 
@@ -202,7 +202,7 @@ router.get("/search", async (req, res) => {
       return;
     }
 
-    const dividedResults = divideResults(segments);
+    const dividedResults = divideResults(segments, params.get("date"));
 
     res.status(200).json(dividedResults);
   } catch (error) {
@@ -296,6 +296,36 @@ router.get("/thread", cache("1 hour"), async (req, res) => {
     const data = apiRes.body;
 
     res.status(200).json(data);
+  } catch (error) {
+    const code = error.code || 500;
+    res.status(code).json({ error: error.message });
+  }
+});
+
+router.get("/nearest_stations", cache("1 day"), async (req, res) => {
+  try {
+    const params = new URLSearchParams({
+      [API_KEY_NAME]: API_KEY_VALUE,
+      ...url.parse(req.url, true).query,
+    });
+
+    const apiRes = await needle(
+      "GET",
+      `${API_BASE_URL}/nearest_stations/?lang=ru_RU&format=json&distance=50&station_types=station,train_station,platform&${params}&limit=6`
+    );
+
+    if (apiRes.statusCode !== 200) {
+      const yandexError = new Error(
+        `API request failed with status code ${apiRes.statusCode}`
+      );
+      yandexError.code = apiRes.statusCode;
+
+      throw yandexError;
+    }
+
+    const data = apiRes.body;
+
+    res.status(200).json(data.stations);
   } catch (error) {
     const code = error.code || 500;
     res.status(code).json({ error: error.message });
