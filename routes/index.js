@@ -46,7 +46,10 @@ const searchStations = (stations, q = "", limit = 15) => {
   const result = [];
 
   if (!q) {
-    return stations.sort(() => 0.5 - Math.random()).slice(0, limit);
+    return stations
+      .filter(({ settlement }) => settlement === "Москва")
+      .sort(() => 0.5 - Math.random())
+      .slice(0, limit);
   }
 
   for (let station of stations) {
@@ -105,10 +108,7 @@ const divideSchedule = (segments, date) => {
 };
 
 const checkForSuggestions = async (fromCode, toCode) => {
-  const proxyRes = await needle(
-    "GET",
-    `http://localhost:5050/api/stations_list`
-  );
+  const proxyRes = await needle("GET", `${PROXY_BASE_URL}/stations_list`);
   const stations = proxyRes.body;
 
   const from = stations.find(({ code }) => code === fromCode);
