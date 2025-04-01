@@ -14,6 +14,10 @@ const PROXY_BASE_URL = process.env.PROXY_BASE_URL;
 //Init cache
 const cache = apicache.middleware;
 
+let cachedStations = null;
+let lastCacheTime = null;
+const CACHE_DURATION = 1000 * 60 * 60 * 24 * 7; // 7 days
+
 //Filter stations for "stations" route
 const filterStations = (data) => {
   const dataObj = JSON.parse(data);
@@ -157,10 +161,14 @@ router.get("/stations_search", cache("5 minutes"), async (req, res) => {
     const params = new URLSearchParams({
       ...url.parse(req.url, true).query,
     });
-    const proxyRes = await needle("GET", `${PROXY_BASE_URL}/stations_list`);
 
-    const data = proxyRes.body;
-    const searchResult = searchStations(data, params.get("q"));
+    if (!cachedStations || Date.now() - lastCacheTime > CACHE_DURATION) {
+      const proxyRes = await needle("GET", `${PROXY_BASE_URL}/stations_list`);
+      cachedStations = proxyRes.body;
+      lastCacheTime = Date.now();
+    }
+
+    const searchResult = searchStations(cachedStations, params.get("q"));
 
     res.status(200).json(searchResult);
   } catch (error) {
