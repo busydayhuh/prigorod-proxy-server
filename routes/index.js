@@ -9,7 +9,6 @@ const apicache = require("apicache");
 const API_BASE_URL = process.env.API_BASE_URL;
 const API_KEY_NAME = process.env.API_KEY_NAME;
 const API_KEY_VALUE = process.env.API_KEY_VALUE;
-const PROXY_BASE_URL = process.env.PROXY_BASE_URL;
 
 //Init cache
 const cache = apicache.middleware;
@@ -112,24 +111,34 @@ const divideSchedule = (segments, date) => {
 };
 
 const checkForSuggestions = async (fromCode, toCode) => {
-  const proxyRes = await needle("GET", `${PROXY_BASE_URL}/stations_list`);
-  const stations = proxyRes.body;
-
-  const from = stations.find(({ code }) => code === fromCode);
-  const to = stations.find(({ code }) => code === toCode);
-
-  let suggestion = [];
-
-  for (let station of stations) {
-    if (
-      station.direction == from.direction &&
-      station.title.includes(to.settlement) &&
-      station.station_type === "train_station"
-    ) {
-      suggestion.push(station);
+  try {
+    if (!cachedStations || Date.now() - lastCacheTime > CACHE_DURATION) {
+      const apiRes = await needle(
+        "GET",
+        `${API_BASE_URL}/stations_list/?lang=ru_RU&format=json&${API_KEY_NAME}=${API_KEY_VALUE}`
+      );
+      cachedStations = apiRes.body;
+      lastCacheTime = Date.now();
     }
+
+    const from = cachedStations.find(({ code }) => code === fromCode);
+    const to = cachedStations.find(({ code }) => code === toCode);
+
+    let suggestion = [];
+
+    for (let station of cachedStations) {
+      if (
+        station.direction == from.direction &&
+        station.title.includes(to.settlement) &&
+        station.station_type === "train_station"
+      ) {
+        suggestion.push(station);
+      }
+    }
+    return { suggestions: suggestion };
+  } catch (error) {
+    return { suggestions: [] };
   }
-  return { suggestions: suggestion };
 };
 
 // ROUTES
@@ -140,22 +149,6 @@ router.use(
   })
 );
 
-router.get("/stations_list", cache("3 days"), async (req, res) => {
-  try {
-    const apiRes = await needle(
-      "GET",
-      `${API_BASE_URL}/stations_list/?lang=ru_RU&format=json&${API_KEY_NAME}=${API_KEY_VALUE}`
-    );
-
-    const data = apiRes.body;
-    const stations = filterStations(data);
-
-    res.status(200).json(stations);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 router.get("/stations_search", cache("5 minutes"), async (req, res) => {
   try {
     const params = new URLSearchParams({
@@ -163,8 +156,12 @@ router.get("/stations_search", cache("5 minutes"), async (req, res) => {
     });
 
     if (!cachedStations || Date.now() - lastCacheTime > CACHE_DURATION) {
-      const proxyRes = await needle("GET", `${PROXY_BASE_URL}/stations_list`);
-      cachedStations = proxyRes.body;
+      const apiRes = await needle(
+        "GET",
+        `${API_BASE_URL}/stations_list/?lang=ru_RU&format=json&${API_KEY_NAME}=${API_KEY_VALUE}`
+      );
+      const data = apiRes.body;
+      cachedStations = filterStations(data);
       lastCacheTime = Date.now();
     }
 
