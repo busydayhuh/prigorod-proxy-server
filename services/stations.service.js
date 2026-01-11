@@ -1,33 +1,54 @@
-const needle = require("needle");
-const {
-  isExpired,
-  setStations,
-  getStations,
-} = require("../cache/stations.cache");
-const { filterStations } = require("../utils/stations.utils");
-const { API_BASE_URL, API_KEY_NAME, API_KEY_VALUE } = process.env;
+const fs = require("fs");
+const path = require("path");
 
-async function fetchStationsFromYandex() {
-  const url = `${API_BASE_URL}/stations_list/?lang=ru_RU&format=json&${API_KEY_NAME}=${API_KEY_VALUE}`;
-  const res = await needle("get", url, { timeout: 20000 });
+const stationsPath = path.join(__dirname, "../data/stations.json");
 
-  if (res.statusCode !== 200) {
-    throw new Error(`Yandex API error: ${res.statusCode}`);
+let stations = null;
+
+function loadStations() {
+  if (!stations) {
+    const raw = fs.readFileSync(stationsPath, "utf-8");
+    stations = JSON.parse(raw);
   }
-
-  return filterStations(res.body);
-}
-
-async function getStationsService() {
-  if (!isExpired()) {
-    return getStations();
-  }
-
-  const stations = await fetchStationsFromYandex();
-  setStations(stations);
   return stations;
 }
 
+function searchStations(q = "", limit = 15) {
+  const data = loadStations();
+
+  if (!q) {
+    return data
+      .filter((s) => s.settlement === "Москва")
+      .sort(() => 0.5 - Math.random())
+      .slice(0, limit);
+  }
+
+  const query = q.toLowerCase();
+
+  return data
+    .filter((s) => s.title.toLowerCase().includes(query))
+    .slice(0, limit);
+}
+
+function checkForSuggestions(fromCode, toCode) {
+  const data = loadStations();
+
+  const from = data.find((s) => s.code === fromCode);
+  const to = data.find((s) => s.code === toCode);
+
+  if (!from || !to) return { suggestions: [] };
+
+  const suggestions = data.filter(
+    (station) =>
+      station.direction === from.direction &&
+      station.title.includes(to.settlement) &&
+      station.station_type === "train_station"
+  );
+
+  return { suggestions };
+}
+
 module.exports = {
-  getStationsService,
+  searchStations,
+  checkForSuggestions,
 };

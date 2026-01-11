@@ -1,5 +1,6 @@
 const { request } = require("./yandex.service");
-const { divideResults, checkForSuggestions } = require("../utils/divide.utils");
+const { divideResults } = require("../utils/divide.utils");
+const { checkForSuggestions } = require("./stations.service");
 
 async function searchSegments(query) {
   const data = await request("search", query);

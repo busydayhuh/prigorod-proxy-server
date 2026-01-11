@@ -56,33 +56,7 @@ function divideSchedule(segments, date) {
   return { departed, future };
 }
 
-/**
- * Проверка для подсказок: ищет похожие станции
- * @param {Array} cachedStations
- * @param {string} fromCode
- * @param {string} toCode
- * @returns {Object} { suggestions: Array }
- */
-async function checkForSuggestions(cachedStations, fromCode, toCode) {
-  if (!cachedStations) return { suggestions: [] };
-
-  const from = cachedStations.find((s) => s.code === fromCode);
-  const to = cachedStations.find((s) => s.code === toCode);
-
-  if (!from || !to) return { suggestions: [] };
-
-  const suggestions = cachedStations.filter(
-    (station) =>
-      station.direction === from.direction &&
-      station.title.includes(to.settlement) &&
-      station.station_type === "train_station"
-  );
-
-  return { suggestions };
-}
-
 module.exports = {
   divideResults,
   divideSchedule,
-  checkForSuggestions,
 };
