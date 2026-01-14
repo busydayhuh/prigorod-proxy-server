@@ -12,11 +12,12 @@ function divideResults(segments, date) {
     return { departed: [], future: [...segments] };
   }
 
-  const targetDate = new Date(date);
+  const now = Date.now();
 
   for (const segment of segments) {
-    const departureTime = new Date(segment.departure);
-    if (departureTime.getTime() > targetDate.getTime()) {
+    const departureTs = Date.parse(segment.departure);
+
+    if (departureTs > now) {
       future.push(segment);
     } else {
       departed.push(segment);
@@ -40,13 +41,15 @@ function divideSchedule(segments, date) {
     return { departed: [], future: [...segments] };
   }
 
-  const now = new Date(date);
+  const now = Date.now();
 
   for (const segment of segments) {
     // Если нет departure, используем arrival
-    const time = new Date(segment.departure || segment.arrival);
+    const departureTs = segment.departure
+      ? Date.parse(segment.departure)
+      : Date.parse(segment.arrival);
 
-    if (time.getTime() > now.getTime()) {
+    if (departureTs > now) {
       future.push(segment);
     } else {
       departed.push(segment);
