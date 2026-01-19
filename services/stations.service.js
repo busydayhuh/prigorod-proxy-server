@@ -42,10 +42,10 @@ function checkForSuggestions(fromCode, toCode) {
     (station) =>
       station.direction === from.direction &&
       station.title.includes(to.settlement) &&
-      station.station_type === "train_station"
+      station.station_type === "train_station",
   );
 
-  return { suggestions };
+  return { suggestions, departed: [], future: [] };
 }
 
 module.exports = {
