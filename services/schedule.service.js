@@ -5,7 +5,7 @@ async function getSchedule(query) {
   const data = await request("schedule", query);
   return {
     ...data,
-    schedule: divideSchedule(data.schedule, data.date),
+    schedule: divideSchedule(data.schedule),
   };
 }
 

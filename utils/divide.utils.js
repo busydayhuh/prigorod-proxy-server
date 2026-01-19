@@ -30,23 +30,19 @@ function divideResults(segments, date) {
 /**
  * Разделяет расписание на departed и future
  * @param {Array} segments - массив расписаний от API
- * @param {string} date - необязательная дата фильтрации
  * @returns {{departed: Array, future: Array}}
  */
-function divideSchedule(segments, date) {
+function divideSchedule(segments) {
   const departed = [];
   const future = [];
-
-  if (!date) {
-    return { departed: [], future: [...segments] };
-  }
 
   const now = Date.now();
 
   for (const segment of segments) {
     // Если нет departure, используем arrival
-    const departureTs = segment.departure
-      ? Date.parse(segment.departure)
+    const departureTs =
+      segment.departure ?
+        Date.parse(segment.departure)
       : Date.parse(segment.arrival);
 
     if (departureTs > now) {
