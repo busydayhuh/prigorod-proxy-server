@@ -27,7 +27,7 @@ async function request(path, query) {
     const params = buildParams(query);
     const res = await needle(
       "GET",
-      `${API_BASE_URL}/${path}/?lang=ru_RU&format=json&${params}`
+      `${API_BASE_URL}/${path}/?lang=ru_RU&format=json&limit=1000&${params}`,
     );
 
     if (res.statusCode !== 200) {
